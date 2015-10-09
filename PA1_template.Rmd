@@ -1,25 +1,77 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template.Rmd"
+author: "Kathryn Hegarty"
+date: "9 October 2015"
+output: html_document
 ---
 
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-## Loading and preprocessing the data
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary(cars)
+```
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
 
 
+#Reproducible research report on Activity Monitoring Data
+===========================================================
 
-## What is mean total number of steps taken per day?
+##Loading required libraries and reading in the data
+```{r}
+library(plyr)
+library(dplyr)
+library(ggplot2)
+rawdata <- read.csv("activity.csv")
+fulldata <- rawdata
+fulldata$date <- as.POSIXct(fulldata$date)
+```
+
+##What is the mean total number of steps taken per day?
+```{r}
+statsfunc <- function(fulldata){
+  return(data.frame(
+    Sumsteps = sum(fulldata$steps, na.rm = TRUE)))
+}
+sumstats <- ddply(fulldata, .(date), statsfunc)
 
 
+qplot(date, Sumsteps, data=sumstats, geom="histogram", stat="identity")
+```
 
-## What is the average daily activity pattern?
+```{r}
+mean(sumstats$Sumsteps)
+```
 
+```{r}
+median(sumstats$Sumsteps)
+```
 
+##What is the average daily activity pattern?
+```{r}
+meantimefunc <- function(fulldata){
+  return(data.frame(
+    meanIntervalSteps = mean(fulldata$steps, na.rm=TRUE)
+  ))
+}
 
-## Imputing missing values
+meantime <- ddply(fulldata, .(interval), meantimefunc)
+plot(meantime$interval, meantime$meanIntervalSteps, type = "l")
+```
 
+```{r}
+head(meantime[order(meantime$meanIntervalSteps, decreasing = TRUE),])
+```
 
-
-## Are there differences in activity patterns between weekdays and weekends?
+##Are there differences in activity patterns between weekdays and weekends?
+```{r}
+fulldata$day <- weekdays(fulldata$date)
+fulldata$week <- ifelse(fulldata$day == "Saturday" | fulldata$day == "Sunday","Weekend", "Weekday")
