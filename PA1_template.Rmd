@@ -71,7 +71,80 @@ plot(meantime$interval, meantime$meanIntervalSteps, type = "l")
 head(meantime[order(meantime$meanIntervalSteps, decreasing = TRUE),])
 ```
 
+##Imputing missing values
+```{r}
+sum(complete.cases(fulldata)==FALSE)
+```
+
+```{r}
+
+imputedData <- data.frame()
+
+for (i in 1:nrow(fulldata)){
+  if (complete.cases(fulldata[i,1]) == FALSE){
+    
+    xx <- function(yy){
+     zz <- filter(meantime, interval==yy)
+     zz[1,2]
+    }
+    
+    
+    imputedData[i,1] = xx(fulldata[i,3])
+  }
+  
+  else{
+    imputedData[i,1] = fulldata[i,1]
+  }
+}
+
+completeData <- fulldata
+completeData[,1] <- imputedData
+
+```
+
+```{r}
+statsfunc <- function(completeData){
+  return(data.frame(
+    Sumsteps = sum(completeData$steps)))
+}
+CompleteSteps <- ddply(completeData, .(date), statsfunc)
+
+
+qplot(date, Sumsteps, data=CompleteSteps, geom="histogram", stat="identity")
+```
+
+```{r}
+mean(CompleteSteps$Sumsteps)
+```
+
+```{r}
+median(CompleteSteps$Sumsteps)
+```
+
+
 ##Are there differences in activity patterns between weekdays and weekends?
 ```{r}
 fulldata$day <- weekdays(fulldata$date)
 fulldata$week <- ifelse(fulldata$day == "Saturday" | fulldata$day == "Sunday","Weekend", "Weekday")
+```
+
+```{r}
+weekday <- filter(completeData, week=="Weekday")
+weekend <- filter(completeData, week=="Weekend")
+
+weekdayfunc <- function(weekday){
+  return(data.frame(
+    meansteps = mean(weekday$steps, na.rm = TRUE)))
+}
+
+weekendfunc <- function(weekend){
+  return(data.frame(
+    meansteps = mean(weekend$steps, na.rm = TRUE)))
+}
+
+weekdaystats <- ddply(weekday, .(interval, week), weekdayfunc)
+weekendstats <- ddply(weekend, .(interval, week), weekendfunc)
+weekstats <- rbind(weekdaystats, weekendstats)
+weekstats$week <- as.factor(weekstats$week)
+
+qplot(interval, meansteps, data=weekstats) + geom_line() + ylab("Number of steps") + facet_wrap(~ week, ncol=1)
