@@ -5,37 +5,35 @@ date: "9 October 2015"
 output: html_document
 ---
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r}
-summary(cars)
-```
-
-You can also embed plots, for example:
-
-```{r, echo=FALSE}
-plot(cars)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
-
 #Reproducible research report on Activity Monitoring Data
 ===========================================================
 
 ##Loading required libraries and reading in the data
+Loading three libraries:
+- plyr
+- dplyr
+- ggplot2
+for table manipulation and graphing tools.
+
 ```{r}
+require("plyr")
+require("dplyr")
+require("ggplot2")
 library(plyr)
 library(dplyr)
 library(ggplot2)
+```
+
+Reading in the data and storing it in a new variable, fulldata, in order to preserve the original source.
+Then, converting the Date column to POSIXct so that the plotting tools will work.
+```{r}
 rawdata <- read.csv("activity.csv")
 fulldata <- rawdata
 fulldata$date <- as.POSIXct(fulldata$date)
 ```
 
 ##What is the mean total number of steps taken per day?
+Calculate the total number of steps per day and display in a histogram:
 ```{r}
 statsfunc <- function(fulldata){
   return(data.frame(
@@ -47,15 +45,18 @@ sumstats <- ddply(fulldata, .(date), statsfunc)
 qplot(date, Sumsteps, data=sumstats, geom="histogram", stat="identity")
 ```
 
+The mean number of steps per day:
 ```{r}
 mean(sumstats$Sumsteps)
 ```
 
+The median number of steps per day:
 ```{r}
 median(sumstats$Sumsteps)
 ```
 
 ##What is the average daily activity pattern?
+Calculating the mean by a factor of Interval. The mean for each interval group is returned as meanIntervalSteps:
 ```{r}
 meantimefunc <- function(fulldata){
   return(data.frame(
@@ -64,18 +65,29 @@ meantimefunc <- function(fulldata){
 }
 
 meantime <- ddply(fulldata, .(interval), meantimefunc)
+```
+
+Plotting as a time series plot:
+```{r}
 plot(meantime$interval, meantime$meanIntervalSteps, type = "l")
 ```
 
+The 5 minute interval with the maximum number of steps will be the mean times sorted in order of decreasing values:
 ```{r}
-head(meantime[order(meantime$meanIntervalSteps, decreasing = TRUE),])
+head(meantime[order(meantime$meanIntervalSteps, decreasing = TRUE),],1)
 ```
 
 ##Imputing missing values
+The number of missing cases:
 ```{r}
 sum(complete.cases(fulldata)==FALSE)
 ```
 
+Filling in the missing values:
+
+For every row:
+-  check if it is a complete case
+- if it is not a complete case, record the mean time of that interval, calculated across the complete cases.
 ```{r}
 
 imputedData <- data.frame()
@@ -84,7 +96,7 @@ for (i in 1:nrow(fulldata)){
   if (complete.cases(fulldata[i,1]) == FALSE){
     
     xx <- function(yy){
-     zz <- filter(meantime, interval==yy)
+     zz <- filter(meantime, interval==yy) ##selecting the interval from the table of mean values
      zz[1,2]
     }
     
@@ -96,12 +108,16 @@ for (i in 1:nrow(fulldata)){
     imputedData[i,1] = fulldata[i,1]
   }
 }
+```
 
+Copy the rest of the data set across, then feed in the new values.
+```{r}
 completeData <- fulldata
 completeData[,1] <- imputedData
 
 ```
 
+Sum up the steps taken per day, and create a histogram of the results:
 ```{r}
 statsfunc <- function(completeData){
   return(data.frame(
@@ -113,21 +129,26 @@ CompleteSteps <- ddply(completeData, .(date), statsfunc)
 qplot(date, Sumsteps, data=CompleteSteps, geom="histogram", stat="identity")
 ```
 
+Mean total number of steps per day:
 ```{r}
 mean(CompleteSteps$Sumsteps)
 ```
 
+Median total number of steps per day:
 ```{r}
 median(CompleteSteps$Sumsteps)
 ```
 
+These values are different from the previously calculated value. The mean number of steps head increased. The median has also increased and is now the same as the mean. This is likely to be because mean interval values were used to populate the missing values.
 
 ##Are there differences in activity patterns between weekdays and weekends?
+Add a new factor variable indicating whether the entry is a weekday or a weekend
 ```{r}
-fulldata$day <- weekdays(fulldata$date)
-fulldata$week <- ifelse(fulldata$day == "Saturday" | fulldata$day == "Sunday","Weekend", "Weekday")
+completeData$day <- weekdays(completeData$date)
+completeData$week <- ifelse(completeData$day == "Saturday" | completeData$day == "Sunday","Weekend", "Weekday")
 ```
 
+Average the number of steps for Weekdays and Weekend, and display in a panel plot:
 ```{r}
 weekday <- filter(completeData, week=="Weekday")
 weekend <- filter(completeData, week=="Weekend")
